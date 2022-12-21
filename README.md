@@ -25,7 +25,7 @@ A 100 second countdown timer is included as an additional feature which can be a
 Algorithms such as a button press handler/debouncer and the reciprocal brightness function have been written from scratch to use the hardware to its full potential.
 
 ## How to use
-### Setting the time/date:
+### Setting the time/date
 1. With the clockface showing, press button 1 to enter time setup.
 2. The time/date setup screens progress as shown:
 `[TIME] -> [DATE] -> [WEEKDAY]`
@@ -68,14 +68,14 @@ Algorithms such as a button press handler/debouncer and the reciprocal brightnes
 4. Pressing the correct button will increase your score, where pressing the incorrect button will decrease it.
 5. When the score meets the set challenge value, the alarm is disabled and returns to the clockface.
 
-### Entering debug mode:
+### Entering debug mode
 1. Alter the brightness by pressing either the up (button 3) or down (button 4) buttons while the clockface or brightness UI is showing.
 2. While the brightness UI is showing, hold down buttons 1 and 2 until the debug mode is displayed.
 
-### Muting the startup sound:
+### Muting the startup sound
 1. While the system is starting up, hold down any of the buttons until both LEDs flash. The startup sound will not play.
 
-### Entering the countdown:
+### Entering the countdown
 1. While the system is starting up, hold down all four buttons before the title is fully shown on the LCD.
 2. Continue holding until the system prompts you to press any button to start the countdown.
 
@@ -91,4 +91,3 @@ Algorithms such as a button press handler/debouncer and the reciprocal brightnes
 ![Set](images/set.jpg)
 ![Brightness](images/brightness.jpg)
 ![Debug](images/debug.jpg)
-
