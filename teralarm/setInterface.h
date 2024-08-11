@@ -22,9 +22,9 @@
 #ifndef SETINTERFACE_H
 #define SETINTERFACE_H
 
-#include <LiquidCrystal_I2C.h>
+#include "BufferedLCD.h"
 
-extern LiquidCrystal_I2C lcd;
+extern BufferedLCD lcd;
 
 bool chTime(byte &setHrs, byte &setMins);
 bool chDate(byte &setDay, byte &setMonth, short &setYear);

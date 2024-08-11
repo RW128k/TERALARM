@@ -147,9 +147,8 @@ bool updateBrightness() {
   EEPROM.update(4, brightness);  
 
   // set up LCD with UI title
-  lcd.clear();
   lcd.setCursor(5, 0);
-  lcd.print("BRIGHTNESS");
+  lcd.print(F("BRIGHTNESS"));
 
   lcd.setCursor(1, 2);
 
@@ -158,7 +157,7 @@ bool updateBrightness() {
 
   // automatic brightness: set bar to reflect this and backlight based on light
   if (brightness == 0) {
-    strcpy(bar, "\2      AUTO      \4");
+    strcpy_P(bar, reinterpret_cast<const char *>(F("\2      AUTO      \4")));
     analogWrite(lcdLED, brightCurve(analogRead(ldr)));
   } else {
     // manual brightness: turn backlight off if brightness is 1 or use

@@ -57,7 +57,6 @@ void secretTimer() {
   bool blinkText = false;
 
   // set up LCD with initial UI title
-  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print(F("100 SECOND COUNTDOWN"));
 
@@ -108,6 +107,7 @@ void secretTimer() {
       remainder = fmod(elapsed, 4);
     } else {
       remainder = fmod(elapsed, 5);
+    }
 
     // buzz and flash for 0.2 seconds (until 0.2s after interval point)
     // remainder gives time passed since points defined by interval
@@ -172,69 +172,99 @@ void debug() {
   unsigned long prev = 0;
   byte carousel = 0;
 
+  lcd.setCursor(0, 1);
+  lcd.print(F("TEMPERATURE: "));
+  lcd.setCursor(0, 2);
+  lcd.print(F("LIGHT: "));
+  lcd.setCursor(0, 3);
+  lcd.print(F("UPTIME:   d  h  m  s"));
+
   // loop (drawing debug UI) until a button is pressed
   while(getPressed() == 0) {
-    // print raw light intensity value followed by newline over serial
-    Serial.println(analogRead(A0));
-
-    // only execute loop body and redraw every 1 second
-    if (millis() - prev < 1000) {continue;}
-    lcd.clear();
-
     // buffer for holding the string of the currently processing line
     char lineBuff[21];
+    int length;
 
-    // fill buffer for TOP LINE based on carousel position (divided by 2 as
-    // carousel increments every second but should display for 2 seconds)
-    switch (carousel / 2) {
+    // print raw light intensity value followed by newline over serial
+    sprintf(lineBuff, "%d", analogRead(ldr));
+    Serial.println(lineBuff);
+
+    // redraw only every 0.2 seconds
+    if (millis() - prev < 200) {
+      continue;
+    }
+
+    // fill buffer for TOP LINE based on carousel position
+    switch (carousel / 10) {
       case 0: {
         // static debug mode title
-        strcpy(lineBuff, "\1\1\1\1\1DEBUG MODE\1\1\1\1\1");
+        strcpy_P(lineBuff, reinterpret_cast<const char *>(F("\1\1\1\1\1DEBUG MODE\1\1\1\1\1")));
+        length = 20;
         break;
       } case 1: {
         // unix time from RTC
-        sprintf(lineBuff, "UNIX: %ld", rtc.getUnixTime(rtc.getTime()));
+        length = sprintf(lineBuff, "UNIX: %ld", rtc.getUnixTime(rtc.getTime()));
         break;
       } case 2: {
         // numerical day of week from RTC and (textual version)
         byte numDow = rtc.getTime().dow;
-        sprintf(lineBuff, "DAY: %d (%s)", numDow, dows[numDow - 1]);
+        length = sprintf(lineBuff, "DAY: %d (%s)", numDow, dows[numDow - 1]);
         break;
       } case 3: {
         // alarm time from RAM (synced with EEPROM)
-        sprintf(lineBuff, "ALARM TIME: %02d:%02d", alarmHrs, alarmMins);
+        length = sprintf(lineBuff, "ALARM TIME: %02d:%02d", alarmHrs, alarmMins);
         break;
       } case 4: {
         // alarm challenge from RAM (synced with EEPROM)
-        sprintf(lineBuff, "ALARM CHALLENGE: %d", alarmChallenge);
+        length = sprintf(lineBuff, "ALARM CHALLENGE: %d", alarmChallenge);
         break;
       } case 5: {
         // alarm state from RAM (synced with EEPROM) numerical and textual form
-        strcpy(lineBuff, alarmState ? "ALARM STATE: 1 (ON)" : "ALARM STATE: 0 (OFF)");
+        if (alarmState) {
+          strcpy_P(lineBuff, reinterpret_cast<const char *>(F("ALARM STATE: 1 (ON)")));
+          length = 19;
+        } else {
+          strcpy_P(lineBuff, reinterpret_cast<const char *>(F("ALARM STATE: 0 (OFF)")));
+          length = 20;
+        }
         break;
       } case 6: {
         // internal numerical brightness from RAM (synced with EEPROM)
-        sprintf(lineBuff, "BRIGHTNESS: %d", brightness);
-        strcat(lineBuff, brightness == 0 ? " (AUTO)" : brightness == 1 ? " (OFF)" : brightness == 17 ? " (MAX)" : "");
+        length = sprintf(lineBuff, "BRIGHTNESS: %d", brightness);
+        if (brightness == 0) {
+          strcat(lineBuff, " (AUTO)");
+          length += 7;
+        } else if (brightness == 1) {
+          strcat(lineBuff, " (OFF)");
+          length += 6;
+        } else if (brightness == 17) {
+          strcat(lineBuff, " (MAX)");
+          length += 6;
+        }
         break;
       }
     }
 
-    // print FIRST LINE from buffer and increment carousel, wrapping at 13
+    // print FIRST LINE from buffer
+    memset(lineBuff + length, ' ', 20 - length); // 20 being the total characters in the line
+    lineBuff[20] = 0;
     lcd.setCursor(0, 0);
     lcd.print(lineBuff);
-    carousel = (carousel+1) % 14;
 
     // print TEMPERATURE at second line with 0.1 degree precision
     char tempStr[6];
-    sprintf(lineBuff, "TEMPERATURE: %s%cC", dtostrf(rtc.getTemp(), 0, 1, tempStr), 223); // 233 is character code for degree symbol
-    lcd.setCursor(0, 1);
+    length = sprintf(lineBuff, "%s%cC", dtostrf(rtc.getTemp(), 0, 1, tempStr), 223); // 233 is character code for degree symbol
+    memset(lineBuff + length, ' ', 7 - length); // 7 being the remaining characters in the line following "TEMPERATURE: " -->
+    lineBuff[7] = 0;
+    lcd.setCursor(13, 1);
     lcd.print(lineBuff);
 
     // print LIGHT INTENSITY AND (BRIGHTNESS TO WRITE) at third line
     short light = analogRead(ldr);
-    sprintf(lineBuff, "LIGHT: %d (%d)", light, brightCurve(light));
-    lcd.setCursor(0, 2);
+    length = sprintf(lineBuff, "%d (%d)", light, brightCurve(light));
+    memset(lineBuff + length, ' ', 13 - length); // 13 being the remaining characters in the line following "LIGHT: " -->
+    lineBuff[13] = 0;
+    lcd.setCursor(7, 2);
     lcd.print(lineBuff);
     
     // parse uptime by spliting milliseconds to days, hours, minutes, seconds
@@ -247,11 +277,25 @@ void debug() {
     secs = secs % 60;
 
     // print UPTIME in split form at fourth line
-    sprintf(lineBuff, "UPTIME: %dd%dh%dm%lds", days, hours, mins, secs);
-    lcd.setCursor(0, 3);
-    lcd.print(lineBuff);
+    sprintf(lineBuff, "%02d %02d %02d %02ld", days, hours, mins, secs);
 
-    // update last loop time to now
+    // insert terminators between values (use single buffer for 4 strings)
+    lineBuff[2] = 0;
+    lineBuff[5] = 0;
+    lineBuff[8] = 0;
+
+    // print the values individually
+    lcd.setCursor(8, 3);
+    lcd.print(lineBuff);
+    lcd.setCursor(11, 3);
+    lcd.print(lineBuff + 3);
+    lcd.setCursor(14, 3);
+    lcd.print(lineBuff + 6);
+    lcd.setCursor(17, 3);
+    lcd.print(lineBuff + 9);
+
+    // increment carousel and reset timer
     prev = millis();
+    carousel = (carousel+1) % 70;
   }
 }

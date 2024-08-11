@@ -60,23 +60,20 @@ bool chTime(byte &setHrs, byte &setMins) {
     // blink hours / minutes every 500ms
     if (millis() - prev >= 250) {
 
-      // print flashing cursor if flag is true and update flag
+      // print flashing cursor if flag is true
       if (blinkText){
         // print cursor at hours or minutes position based on selected value
         lcd.setCursor(set ? 7 : 10, 2);
         lcd.print("\1\1");
-
-        blinkText = false;
-      // print selected value if flag is false and update flag
+      // print selected value if flag is false
       } else {
         // format and repaint entire time string
         char setStr[6];
         sprintf(setStr, "%02d:%02d", setHrs, setMins);
         lcd.setCursor(7, 2);
         lcd.print(setStr);
-
-        blinkText = true;
       }
+      blinkText = !blinkText;
       prev = millis();
     }
     
@@ -85,12 +82,13 @@ bool chTime(byte &setHrs, byte &setMins) {
       // BUTTON 1: confirm
       case 1: {
         // return save signal if last value selected else select next value
-        if (set) {
-          set = false;
-          break;
-        } else {
+        if (!set) {
           return true;
         }
+        set = false;
+        blinkText = false;
+        prev = 0;
+        break;
 
       // BUTTON 2: cancel and return discard signal
       } case 2: {
@@ -103,6 +101,8 @@ bool chTime(byte &setHrs, byte &setMins) {
         } else {
           setMins = (setMins + 1) % 60; // increase minutes in range 0 -> 59
         }
+        blinkText = false;
+        prev = 0;
         break;
 
       // BUTTON 4: decrement selected value, respecting allowed ranges
@@ -112,6 +112,8 @@ bool chTime(byte &setHrs, byte &setMins) {
         } else {
           setMins = (setMins + 59) % 60; // decrease minutes in range 0 -> 59
         }
+        blinkText = false;
+        prev = 0;
         break;
       }
     }    
@@ -154,7 +156,7 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
     // blink day / month / year every 500ms
     if (millis() - prev >= 250) {
 
-      // print flashing cursor if flag is true and update flag
+      // print flashing cursor if flag is true
       if (blinkText) {
         // print cursor at day, month or year position based on selected value
         if (set == 0) {
@@ -167,18 +169,15 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
           lcd.setCursor(11, 2);
           lcd.print("\1\1\1\1"); // appropriate size for year
         }
-
-        blinkText = false;
-      // print selected value if flag is false and update flag
+      // print selected value if flag is false
       } else {
         // format and repaint entire date string
         char setStr[11];
         sprintf(setStr, "%02d/%02d/%d", setDay, setMonth, setYear);
         lcd.setCursor(5, 2);
         lcd.print(setStr);
-
-        blinkText = true;
       }
+      blinkText = !blinkText;
       prev = millis();
     }
 
@@ -187,10 +186,12 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
       // BUTTON 1: confirm
       case 1: {
         // return save signal if last value selected else select next value
-        set++;
-        if (set == 3) {
+        if (set == 2) {
           return true;
         }
+        set++;
+        blinkText = false;
+        prev = 0;
         break;
 
       // BUTTON 2: cancel and return discard signal
@@ -206,6 +207,8 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
         } else if (setYear < 9999){
           setYear++; // increase year with upper limit of 9999
         }
+        blinkText = false;
+        prev = 0;
         break;
 
       // BUTTON 4: decrement selected value, respecting allowed ranges / limits
@@ -217,6 +220,8 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
         } else if (setYear > 1000){
           setYear--; // increase year with lower limit of 1000
         }
+        blinkText = false;
+        prev = 0;
         break;
       }
     }
@@ -257,32 +262,28 @@ bool chArray(const char *iter[], byte bound, byte &setIndex) {
   
   // loop (blinking and handling input) until canceled or index confirmed
   while (true) {
-
     // blink array contents at index every 500ms
-    if (millis() - prev >= 250) { 
+    if (millis() - prev >= 250) {
+      // buffer for entire second line and variables to track length and position
+      char lineBuff[21];
+      int length = strlen(iter[setIndex - 1]);
+      int pos = (20 - length) / 2;
 
-      // clear entire second line to avoid leftovers from a previous index
-      lcd.setCursor(0, 2);
-      lcd.print("                    ");
-
-      // set cursor based on size of contents at index so it prints in centre
-      lcd.setCursor(int((20 - strlen(iter[setIndex - 1])) / 2), 2);
-
-      // print flashing cursor if flag is true and update flag
       if (blinkText){
-        // create buffer for storing cursor characters and fill it with as many
-        // as the length of the string in array at index and print
-        char dowBlink[21];
-        memset(dowBlink, 1, strlen(iter[setIndex - 1])); 
-        dowBlink[strlen(iter[setIndex - 1])] = 0; // null terminator
-        lcd.print(dowBlink);
-
-        blinkText = false;
-      // print value at current index of array if flag is false and update flag
+        // place cursor of size same as value at current index of array at middle of buffer
+        memset(lineBuff + pos, '\1', length);
       } else {
-        lcd.print(iter[setIndex - 1]);
-        blinkText = true;
+        // place value at current index of array at middle of buffer
+        memcpy(lineBuff + pos, iter[setIndex - 1], length);
       }
+
+      memset(lineBuff, ' ', pos);
+      memset(lineBuff + pos + length, ' ', 20 - (pos + length));
+      lineBuff[20] = 0;
+      lcd.setCursor(0, 2);
+      lcd.print(lineBuff);
+
+      blinkText = !blinkText;
       prev = millis();
     }
     
@@ -299,11 +300,15 @@ bool chArray(const char *iter[], byte bound, byte &setIndex) {
       // BUTTON 3: increment index in range 1 -> bound
       } case 3: {
         setIndex = (setIndex % bound) + 1;
+        blinkText = false;
+        prev = 0;
         break;
 
       // BUTTON 3: decrement index in range 1 -> bound
       } case 4: {
         setIndex = ((setIndex + bound - 2) % bound) + 1;
+        blinkText = false;
+        prev = 0;
         break;
       }
     }    
@@ -335,32 +340,31 @@ bool chChallenge(byte &setNum) {
   
   // loop (blinking and handling input) until canceled or challenge confirmed
   while (true) {
-
     // blink challenge every 500ms
-    if (millis() - prev >= 250) { 
+    if (millis() - prev >= 250) {
+      // buffer for entire second line and variables to track length and position
+      char lineBuff[21];
+      int length = setNum == 0 ? 4 : setNum < 10 ? 1 : 2;
+      int pos = (20 - length) / 2;
 
-      // clear entire second line to avoid leftovers from a previous challenge
-      lcd.setCursor(0, 2);
-      lcd.print("                    ");
-
-      // set cursor based on if number or 'NONE' is to be printed in centre
-      lcd.setCursor(setNum == 0 ? 8 : 9, 2);
-
-      // print flashing cursor if flag is true and update flag
       if (blinkText){
-        // print cursor of size same as number of digits / letters in challenge
-        lcd.print(setNum == 0 ? "\1\1\1\1" : setNum < 10 ? "\1" : "\1\1");
-
-        blinkText = false;
-      // print challenge if flag is false and update flag
+        // place cursor of size same as number of digits / letters in challenge at middle of buffer
+        memset(lineBuff + pos, '\1', length);
+      } else if (setNum == 0) {
+        // place NONE if challenge is 0 at middle of buffer
+        memcpy_P(lineBuff + pos, reinterpret_cast<const char *>(F("NONE")), length);
       } else {
-        // format and repaint numerical challenge or 'NONE' if 0
-        char setStr[5];
-        sprintf(setStr, setNum == 0 ? "NONE" : "%d", setNum);
-        lcd.print(setStr);
-
-        blinkText = true;
+        // place challenge at middle of buffer
+        sprintf(lineBuff + pos, "%d", setNum);
       }
+
+      memset(lineBuff, ' ', pos);
+      memset(lineBuff + pos + length, ' ', 20 - (pos + length));
+      lineBuff[20] = 0;
+      lcd.setCursor(0, 2);
+      lcd.print(lineBuff);
+
+      blinkText = !blinkText;
       prev = millis();
     }
     
@@ -377,11 +381,15 @@ bool chChallenge(byte &setNum) {
       // BUTTON 3: increment challenge in range 0 -> 99
       } case 3: {
         setNum = (setNum + 1) % 100;
+        blinkText = false;
+        prev = 0;
         break;
 
       // BUTTON 4: decrement challenge in range 0 -> 99
       } case 4: {
         setNum = (setNum + 99) % 100;
+        blinkText = false;
+        prev = 0;
         break;
       }
     }    
@@ -412,7 +420,8 @@ void confirm() {
   background(200);
   digitalWrite(buzzer, HIGH); // off
   digitalWrite(blueLED, LOW);
-  background(800);     
+  background(800);
+  lcd.clear();
 }
 
 void cancel() {
@@ -437,4 +446,5 @@ void cancel() {
   digitalWrite(buzzer, HIGH); // off
   digitalWrite(redLED, LOW);
   background(1000);
+  lcd.clear();
 }

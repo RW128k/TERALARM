@@ -33,10 +33,11 @@
 #ifndef EXTENDEDFUNCTIONALITY_H
 #define EXTENDEDFUNCTIONALITY_H
 
-#include <LiquidCrystal_I2C.h>
 #include <DS3231.h>
 
-extern LiquidCrystal_I2C lcd;
+#include "BufferedLCD.h"
+
+extern BufferedLCD lcd;
 extern DS3231 rtc;
 extern byte alarmMins;
 extern byte alarmHrs;

@@ -23,10 +23,11 @@
    (C) RW128k 2022
 */
 
+#include <Arduino.h>
 #include <EEPROM.h>
-#include <LiquidCrystal_I2C.h>
 #include <DS3231.h>
 
+#include "BufferedLCD.h"
 #include "setInterface.h"
 #include "backgroundTasks.h"
 #include "extendedFunctionality.h"
@@ -43,7 +44,7 @@
 #define ldr A0
 
 // hardware objects
-LiquidCrystal_I2C lcd(0x27, 20, 4);
+BufferedLCD lcd(0x27, 20, 4);
 DS3231 rtc(SDA, SCL);
 
 // synchronised EEPROM values in RAM
@@ -53,12 +54,12 @@ byte alarmChallenge;
 bool alarmState;
 byte brightness;
 
-// current time structures
+// current time struct
 Time timeObj;
-char timeStr[9];
 
 // string constants
 const char *dows[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+const char *months[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 const char *stateStrs[2] = {"OFF", "ON"};
 const char titleStr[13] = "PROTOTYPE 02";
 
@@ -88,10 +89,10 @@ void setup() {
   pinMode(ldr, INPUT);
 
   // create custom LCD characters for blinking cursor and brightness bar
-  byte blinkChar[8] = {B11111, B11111, B11111, B11111, B11111, B11111, B11111, B11111};
-  byte brightBoundL[8] = {B00011, B00011, B00011, B00011, B00011, B00011, B00011, B00011};
-  byte brightFill[8] = {B00000, B11111, B11111, B11111, B11111, B11111, B11111, B00000};
-  byte brightBoundR[8] = {B11000, B11000, B11000, B11000, B11000, B11000, B11000, B11000};
+  byte blinkChar[8] = {0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111};
+  byte brightBoundL[8] = {0b00011, 0b00011, 0b00011, 0b00011, 0b00011, 0b00011, 0b00011, 0b00011};
+  byte brightFill[8] = {0b00000, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b00000};
+  byte brightBoundR[8] = {0b11000, 0b11000, 0b11000, 0b11000, 0b11000, 0b11000, 0b11000, 0b11000};
 
   // add custom LCD characters to LCD object to be used in printing
   lcd.createChar(1, blinkChar);
@@ -130,7 +131,7 @@ void setup() {
     // select coordinate pair at random from remaining set and fill it on LCD
     byte pos = random(0, maxi);
     lcd.setCursor(coords[pos][1], coords[pos][0]);
-    lcd.print("\1");
+    lcd.print(F("\1"));
     delay(20);
 
     // replace recently filled coordinate with rightmost unfilled
@@ -148,7 +149,7 @@ void setup() {
 
   // fill in previously printed title to make completely filled screen
   lcd.setCursor(4, 1);
-  lcd.print("\1\1\1\1\1\1\1\1\1\1\1\1");
+  lcd.print(F("\1\1\1\1\1\1\1\1\1\1\1\1"));
   delay(150);
   
   // if all buttons are held down at this point, halt automatic brightness,
@@ -156,6 +157,7 @@ void setup() {
   if (digitalRead(button1) == LOW && digitalRead(button2) == LOW && digitalRead(button3) == LOW && digitalRead(button4) == LOW) {
     if (brightness == 0) {brightness = 255;}
     getPressed();
+    lcd.clear();
     secretTimer();
     // revert automatic brightness: never reached but kept for portability
     if (brightness == 255) {brightness = 0;}
@@ -181,7 +183,7 @@ void setup() {
 
   // print credits line on LCD
   lcd.setCursor(4, 2);
-  lcd.print("-RWGUNN '22-");
+  lcd.print(F("-RWGUNN '22-"));
 
   // print credits art, title, time and date over serial
   Serial.println(F(" ____          ____"));
@@ -196,8 +198,9 @@ void setup() {
   Serial.print(rtc.getDateStr(FORMAT_LONG, FORMAT_LITTLEENDIAN, '/'));
   Serial.println(F(".\n"));
     
-  // give the user time (2.5s) to read the static LCD
+  // give the user time (2.5s) to read the static LCD then clear for drawing the clockface
   delay(2500);
+  lcd.clear();
 
   // send final serial message informing setup has finished
   Serial.println(F("THE SYSTEM IS NOW OPERATIONAL AND NO FURTHER SERIAL COMMUNICATION WILL BE PROVIDED."));
@@ -228,15 +231,18 @@ void loop() {
   // stop it triggering directly after being disabled if time is the same
   static bool alarmDisabled = false;
   
-  // repaint clockface if time (seconds) has changed since it was last painted
-  if (strcmp(timeStr, rtc.getTimeStr()) != 0) {updateTime();}
+  // get RTC time and paint / update the clockface every iteration of the loop
+  timeObj = rtc.getTime();
+  updateTime();
 
   // sound alarm if the current time equals the alarm time and it has not been
   // disabled already in the current minute
   if (timeObj.hour == alarmHrs && timeObj.min == alarmMins && !alarmDisabled && alarmState) {
+    lcd.clear();
     soundAlarm();
     // mark alarm as disabled for current minute
     alarmDisabled = true;
+    lcd.clear();
   }
 
   // mark alarm as not already disabled if the current time is not the alarm
@@ -255,7 +261,7 @@ void loop() {
       // set up UI background on LCD (clear and print title)
       lcd.clear();
       lcd.setCursor(5, 0);
-      lcd.print("SET TIME:");
+      lcd.print(F("SET TIME:"));
 
       // load current hours and minutes into memory for manipulation
       byte setHrs = timeObj.hour;
@@ -269,7 +275,7 @@ void loop() {
         // paint confirmation UI with new time and play buzzer sound
         lcd.clear();
         lcd.setCursor(4, 1);
-        lcd.print("TIME SET TO:");
+        lcd.print(F("TIME SET TO:"));
         lcd.setCursor(7, 2);
         lcd.print(rtc.getTimeStr(FORMAT_SHORT));
         confirm();    
@@ -282,10 +288,9 @@ void loop() {
       
       /* SET DATE */
 
-      // set up UI background on LCD (clear and print title)
-      lcd.clear();
+      // print title on LCD
       lcd.setCursor(5, 0);
-      lcd.print("SET DATE:");
+      lcd.print(F("SET DATE:"));
 
       // load current day, month and year into memory for manipulation
       byte setDay = timeObj.date;
@@ -300,7 +305,7 @@ void loop() {
         // paint confirmation UI with new date and play buzzer sound
         lcd.clear();
         lcd.setCursor(4, 1);
-        lcd.print("DATE SET TO:");
+        lcd.print(F("DATE SET TO:"));
         lcd.setCursor(5, 2);
         lcd.print(rtc.getDateStr(FORMAT_LONG, FORMAT_LITTLEENDIAN, '/'));
         confirm();    
@@ -313,10 +318,9 @@ void loop() {
 
       /* SET WEEKDAY */
 
-      // set up UI background on LCD (clear and print title)
-      lcd.clear();
+      // print title on LCD
       lcd.setCursor(4, 0);
-      lcd.print("SET WEEKDAY:");
+      lcd.print(F("SET WEEKDAY:"));
 
       // load current weekday into memory for manipulation
       byte setDow = timeObj.dow;
@@ -329,7 +333,7 @@ void loop() {
         // paint confirmation UI with new weekday and play buzzer sound
         lcd.clear();
         lcd.setCursor(2, 1);
-        lcd.print("WEEKDAY SET TO:");
+        lcd.print(F("WEEKDAY SET TO:"));
         // time object must be recreated to read new weekday from RTC
         timeObj = rtc.getTime();
         // numerical to textual weekday: calculate LCD position and print
@@ -350,7 +354,7 @@ void loop() {
       // set up UI background on LCD (clear and print title)
       lcd.clear();
       lcd.setCursor(5, 0);
-      lcd.print("SET ALARM:");
+      lcd.print(F("SET ALARM:"));
 
       // copy current alarm hours and minutes to new memory for manipulation
       byte setHrs = alarmHrs;
@@ -367,7 +371,7 @@ void loop() {
         // paint confirmation UI with new alarm time and play buzzer sound
         lcd.clear();
         lcd.setCursor(3, 1);
-        lcd.print("ALARM SET TO:");
+        lcd.print(F("ALARM SET TO:"));
         lcd.setCursor(7, 2);
         // create buffer and format time string into buffer then print to LCD
         char confStr[6];
@@ -384,9 +388,8 @@ void loop() {
       /* SET CHALLENGE */
 
       // set up UI background on LCD (clear and print title)
-      lcd.clear();
       lcd.setCursor(3, 0);
-      lcd.print("SET CHALLENGE:");
+      lcd.print(F("SET CHALLENGE:"));
 
       // copy current challenge to new memory for manipulation
       byte setNum = alarmChallenge;
@@ -400,11 +403,15 @@ void loop() {
         // paint confirmation UI with new challenge and play buzzer sound
         lcd.clear();
         lcd.setCursor(1, 1);
-        lcd.print("CHALLENGE SET TO:");
+        lcd.print(F("CHALLENGE SET TO:"));
         lcd.setCursor(alarmChallenge == 0 ? 8 : 9, 2);
         // create buffer and format challenge into buffer then print to LCD
-        char confStr[5]; 
-        sprintf(confStr, setNum == 0 ? "NONE" : "%d", alarmChallenge);
+        char confStr[5];
+        if (setNum == 0) {
+          strcpy_P(confStr, reinterpret_cast<const char *>(F("NONE")));
+        } else {
+          sprintf(confStr, "%d", alarmChallenge);
+        }
         lcd.print(confStr);
         confirm();
       } else {
@@ -417,9 +424,8 @@ void loop() {
       /* SET STATE */
 
       // set up UI background on LCD (clear and print title)
-      lcd.clear();
       lcd.setCursor(5, 0);
-      lcd.print("SET STATE:");
+      lcd.print(F("SET STATE:"));
 
       // copy current state to new memory for manipulation (boolean to integer)
       byte setState = alarmState ? 2 : 1;
@@ -433,7 +439,7 @@ void loop() {
         // paint confirmation UI with new state and play buzzer sound
         lcd.clear();
         lcd.setCursor(3, 1);
-        lcd.print("STATE SET TO:");
+        lcd.print(F("STATE SET TO:"));
         // numerical to textual state: calculate LCD position and print
         lcd.setCursor(alarmState ? 9 : 8, 2);
         lcd.print(alarmState ? stateStrs[1] : stateStrs[0]);
@@ -442,7 +448,7 @@ void loop() {
         // paint cancellation UI and play buzzer sound if cancelled
         cancel();
       }
-      
+
       break;
 
     // BUTTON 3: increment brightness and draw brightness UI
@@ -450,7 +456,9 @@ void loop() {
       // increase brightness in range 0, 1 -> 17 (AUTO, OFF -> MAX)
       brightness = (brightness + 1) % 18;
       // if UI function returns true, brightness changed further so call again
+      lcd.clear();
       while (updateBrightness());
+      lcd.clear();
       break;
 
     // BUTTON 4: decrement brightness and draw brightness UI
@@ -458,7 +466,9 @@ void loop() {
       // decrease brightness in range 0, 1 -> 17 (AUTO, OFF -> MAX)
       brightness = (brightness + 17) % 18; // rollunder 0 -> 17
       // if UI function returns true, brightness changed further so call again
+      lcd.clear();
       while (updateBrightness());
+      lcd.clear();
       break;
     }
   }

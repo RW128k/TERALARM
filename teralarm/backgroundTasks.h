@@ -23,9 +23,9 @@
 #ifndef BACKGROUNDTASKS_H
 #define BACKGROUNDTASKS_H
 
-#include <LiquidCrystal_I2C.h>
+#include "BufferedLCD.h"
 
-extern LiquidCrystal_I2C lcd;
+extern BufferedLCD lcd;
 extern byte brightness;
 
 byte brightCurve(short sensor);

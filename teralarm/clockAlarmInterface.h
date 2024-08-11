@@ -17,8 +17,6 @@
        brightness - Brightness setting value (synchronised with EEPROM).
        timeObj - Shared current Date / Time object across sources.
        dows - Constant array of strings holding the days of the week.
-       timeStr - Shared string of colon delimited hours, minutes and seconds
-         across sources.
      Third Party Includes:
        Arduino.h - The main Arduino library containing all platform specific
          functions and constants.
@@ -36,10 +34,11 @@
 #ifndef CLOCKALARMINTERFACE_H
 #define CLOCKALARMINTERFACE_H
 
-#include <LiquidCrystal_I2C.h>
 #include <DS3231.h>
 
-extern LiquidCrystal_I2C lcd;
+#include "BufferedLCD.h"
+
+extern BufferedLCD lcd;
 extern DS3231 rtc;
 
 extern byte alarmMins;
@@ -50,7 +49,7 @@ extern byte brightness;
 
 extern Time timeObj;
 extern const char *dows[7];
-extern char timeStr[9];
+extern const char *months[12];
 
 void updateTime();
 void soundAlarm();

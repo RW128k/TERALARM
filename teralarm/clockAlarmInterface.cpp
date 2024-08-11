@@ -17,8 +17,6 @@
        brightness - Brightness setting value (synchronised with EEPROM).
        timeObj - Shared current Date / Time object across sources.
        dows - Constant array of strings holding the days of the week.
-       timeStr - Shared string of colon delimited hours, minutes and seconds
-         across sources.
      Third Party Includes:
        Arduino.h - The main Arduino library containing all platform specific
          functions and constants.
@@ -52,44 +50,67 @@ void updateTime() {
        Parameters: N/A
        Returns: N/A
    */
-  timeObj = rtc.getTime();
-  
-  lcd.clear();
+
+  // buffer for entire line on clockface
+  char lineBuff[21];
   
   // print ALARM TIME at top left or 'OFF' if alarm disabled
   char alarmStr[6];
-  sprintf(alarmStr , alarmState ? "%02d:%02d" : "OFF", alarmHrs, alarmMins);
+  if (alarmState) {
+    sprintf(alarmStr, "%02d:%02d", alarmHrs, alarmMins);
+  } else {
+    strcpy_P(alarmStr, reinterpret_cast<const char *>(F("OFF")));
+  }
   lcd.setCursor(0, 0);
   lcd.print(alarmStr);
   
   // print TEMPERATURE at top right
   char tempStr[6];
-  sprintf(tempStr, "%d%cC", int(rtc.getTemp()), 223); // 233 is character code for degree symbol
-  lcd.setCursor(int(20 - strlen(tempStr)), 0);
-  lcd.print(tempStr);
+  int tempLength = sprintf(tempStr, "%d%cC", int(rtc.getTemp()), 223); // 233 is character code for degree symbol
+  memset(lineBuff, ' ', 15 - tempLength);
+  memcpy(lineBuff + 15 - tempLength, tempStr, tempLength + 1);
+  lcd.setCursor(5, 0);
+  lcd.print(lineBuff);
   
   // print RTC TIME at upper centre
-  strcpy(timeStr, rtc.getTimeStr());
+  char timeStr[9];
+  sprintf(timeStr, "%02d:%02d:%02d", timeObj.hour, timeObj.min, timeObj.sec);
   lcd.setCursor(6, 1);
   lcd.print(timeStr);
   
   // print DATE spread out over lower centre and bottom by loading the entire
   // date string into buffer and storing pointer to begining of second line
-  char dateStr[23];
-  char *yearStr;
-  sprintf(dateStr, "%s %d %s %d", dows[timeObj.dow - 1], timeObj.date, rtc.getMonthStr(), timeObj.year);
-
+  char dateUpperStr[28];
+  int dateUpperLength = sprintf(dateUpperStr, "%s %d ", dows[timeObj.dow - 1], timeObj.date);
+  int dateLowerLength = sprintf(dateUpperStr + dateUpperLength, "%s %d", months[timeObj.mon - 1], timeObj.year);
   // set the pointer to the start of the second line to the year if the month
   // can fit on first line or the month if it can't
-  yearStr = dateStr + (strlen(dateStr) - (strlen(dateStr) > 25 ? strlen(rtc.getMonthStr()) + 1 : 0) - 4);
-  // place null terminator at end of first line (before start second line)
-  *(yearStr - 1) = 0;
+  char *dateLowerStr = dateUpperLength + dateLowerLength > 25 ? dateUpperStr + dateUpperLength : dateUpperStr + dateUpperLength + dateLowerLength - 4;
 
-  // print first and second lines of date
-  lcd.setCursor(int((20 - strlen(dateStr)) / 2), 2);
-  lcd.print(dateStr);
-  lcd.setCursor(int((20 - strlen(yearStr)) / 2), 3);
-  lcd.print(yearStr);
+  // (re)calculate upper / lower date lengths and positions
+  dateLowerLength = dateUpperStr + dateUpperLength + dateLowerLength - dateLowerStr;
+  dateUpperLength = dateLowerStr - dateUpperStr - 1;
+  int dateLowerPos = (20 - dateLowerLength) / 2;
+  int dateUpperPos = (20 - dateUpperLength) / 2;
+
+  // place null terminator at end of first line (before start second line)
+  dateUpperStr[dateUpperLength] = 0;
+
+  // print UPPER DATE line centrally, padding remaining characters in line
+  memset(lineBuff, ' ', dateUpperPos);
+  memset(lineBuff + dateUpperPos + dateUpperLength, ' ', 20 - (dateUpperPos + dateUpperLength));
+  memcpy(lineBuff + dateUpperPos, dateUpperStr, dateUpperLength);
+  lineBuff[20] = 0;
+  lcd.setCursor(0, 2);
+  lcd.print(lineBuff);
+
+  // print LOWER DATE line centrally, padding remaining characters in line
+  memset(lineBuff, ' ', dateLowerPos);
+  memset(lineBuff + dateLowerPos + dateLowerLength, ' ', 20 - (dateLowerPos + dateLowerLength));
+  memcpy(lineBuff + dateLowerPos, dateLowerStr, dateLowerLength);
+  lineBuff[20] = 0;
+  lcd.setCursor(0, 3);
+  lcd.print(lineBuff);
 }
 
 void soundAlarm() {
@@ -130,19 +151,16 @@ void soundAlarm() {
     while (true) {
       // every 1 second redraw UI and toggle alarm text visibility
       if (millis() - prev1 > 1000) {
-        lcd.clear();
+        timeObj = rtc.getTime();
 
         // print ALARM TEXT at top left depending on flag and then update flag
-        if (blinkText) {
-          lcd.setCursor(0, 0);
-          lcd.print("ALARM!");
-          blinkText = false;
-        } else {
-          blinkText = true;
-        }
+        lcd.setCursor(0, 0);
+        lcd.print(blinkText ? "ALARM!" : "      ");
+        blinkText = !blinkText;
 
         // print RTC TIME at upper centre
-        strcpy(timeStr, rtc.getTimeStr());
+        char timeStr[9];
+        sprintf(timeStr, "%02d:%02d:%02d", timeObj.hour, timeObj.min, timeObj.sec);
         lcd.setCursor(6, 1);
         lcd.print(timeStr);
 
@@ -162,7 +180,7 @@ void soundAlarm() {
         } else {
           // print NO CHALLENGE INSTRUCTION at bottom
           lcd.setCursor(3, 3);
-          lcd.print("PRESS ANY KEY");
+          lcd.print(F("PRESS ANY KEY"));
         }
         
         prev1 = millis();
@@ -199,6 +217,7 @@ void soundAlarm() {
         // disable buzzer
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
+        lcd.clear();
         break;
       // if challenge is > 0 and answer is correct increment points and break
       } else if (pressed == num) {
@@ -209,7 +228,7 @@ void soundAlarm() {
         digitalWrite(buzzer, HIGH);
         digitalWrite(redLED, LOW);
         digitalWrite(blueLED, HIGH);
-        lcd.print("CORRECT!");
+        lcd.print(F("CORRECT!"));
         tone(buzzer, 2000);
         delay(500);
         tone(buzzer, 1000);
@@ -217,6 +236,7 @@ void soundAlarm() {
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
         digitalWrite(blueLED, LOW);
+        lcd.clear();
         // break from loop shows next question or disables alarm
         break;
       // if challenge is > 0 and answer is incorrect decrement points and break
@@ -231,7 +251,7 @@ void soundAlarm() {
         digitalWrite(buzzer, HIGH);
         digitalWrite(redLED, HIGH);
         digitalWrite(blueLED, LOW);
-        lcd.print("INCORRECT!");
+        lcd.print(F("INCORRECT!"));
         tone(buzzer, 1000);
         delay(500);
         tone(buzzer, 2000);
@@ -239,15 +259,15 @@ void soundAlarm() {
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
         digitalWrite(redLED, LOW);
+        lcd.clear();
         // do not break, loop again for the same question but with less points
       }
     }
   } while (points < alarmChallenge);
 
   // outer loop ended so alarm disabled. print DISABLED MESSAGE at upper centre
-  lcd.clear();
   lcd.setCursor(3, 1);
-  lcd.print("ALARM DISABLED!");
+  lcd.print(F("ALARM DISABLED!"));
 
   // turn off both LEDs
   digitalWrite(redLED, LOW);
