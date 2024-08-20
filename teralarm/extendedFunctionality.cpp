@@ -76,7 +76,8 @@ void secretTimer() {
     prev = millis();
   }
 
-  // once a button has been pressed, prepare to start the countdown
+  // once a button has been pressed, absorb and prepare to start the countdown
+  consumePress();
   lcd.clear();
 
   // declare elapsed to hold the time since prev (when timer began) in seconds
@@ -172,6 +173,11 @@ void debug() {
   unsigned long prev = 0;
   byte carousel = 0;
 
+  // absorb presses from caller and clear LCD
+  consumePress();
+  lcd.clear();
+
+  // print constant values to LCD
   lcd.setCursor(0, 1);
   lcd.print(F("TEMPERATURE: "));
   lcd.setCursor(0, 2);

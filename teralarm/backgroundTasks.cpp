@@ -33,6 +33,9 @@
 #define lcdLED 10
 #define ldr A0
 
+// file-scoped global to record currently tracking button
+static byte lastPressed = 0;
+
 byte brightCurve(short sensor) {
   /* brightCurve - Function that converts a sensor value (usually read from the
        LDR) to a value suitable for writing to the LCD backlight to control
@@ -91,8 +94,9 @@ byte getPressed() {
 
   // initialise button press related variables
   static unsigned long pressTimer = 0;
-  static byte lastPressed = 0;
-  byte curPressed;
+  static bool hold = false;
+  unsigned long elapsed = millis() - pressTimer;
+  byte curPressed = 0x0;
 
   // set the highest and lowest sensor values if a new boundary is recorded
   if (curSensor < minSensor) {minSensor = curSensor;}
@@ -107,28 +111,55 @@ byte getPressed() {
     brightTimer = millis();
   }
 
-  // identify the currently pressed button (0 = none pressed)
-  if (digitalRead(button1) == LOW) {curPressed = 1;}
-  else if (digitalRead(button2) == LOW) {curPressed = 2;}  
-  else if (digitalRead(button3) == LOW) {curPressed = 3;}
-  else if (digitalRead(button4) == LOW) {curPressed = 4;}
-  else {curPressed = 0;}
+  // identify the currently pressed buttons
+  if (digitalRead(button1) == LOW) curPressed |= 0x1;
+  if (digitalRead(button2) == LOW) curPressed |= (0x1 << 1);
+  if (digitalRead(button3) == LOW) curPressed |= (0x1 << 2);
+  if (digitalRead(button4) == LOW) curPressed |= (0x1 << 3);
 
-  // return the currently pressed button if 100ms has passed since the last
-  // release and the press has not yet been recorded and returned
-  if (curPressed > 0 && lastPressed == 0 && millis() - pressTimer >= 100) { // ALLOW PRESS 100MS AFTER RELEASE
-    lastPressed = curPressed;
+  // return and track the currently pressed button if 100ms has passed since
+  // the last release and no button is currently tracked
+  if (curPressed != 0x0 && lastPressed == 0 && elapsed >= 100) { // ALLOW PRESS 100MS AFTER RELEASE
+    while (((curPressed >> lastPressed++) & 0x1) == 0x0);
     pressTimer = millis();
-    return curPressed;
-  // mark buttons as unpressed (release) if no button is currently pressed and
-  // 100ms has passed since the last initial press
-  } else if (curPressed == 0 && lastPressed > 0 && millis() - pressTimer >= 100) { // ALLOW RELEASE 100MS AFTER PRESS
+    return lastPressed;
+  // return the currently tracked button and enter hold mode if 500ms has
+  // passed since tracking began and hold mode has not yet been entered
+  } else if (lastPressed > 0 && ((curPressed >> (lastPressed - 1)) & 0x1) == 0x1 && !hold && elapsed >= 500) {
+    hold = true;
+    pressTimer = millis();
+    return lastPressed;
+  // return the currently tracked button if 100ms has passed since it was last
+  // returned and hold mode has been entered
+  } else if (lastPressed > 0 && ((curPressed >> (lastPressed - 1)) & 0x1) == 0x1 && hold && elapsed >= 100) {
+    pressTimer = millis();
+    return lastPressed;
+  // if the tracked button is not pressed but a different button is, lock
+  // presses until all buttons are released
+  } else if (curPressed != 0x0 && lastPressed > 0 && lastPressed < 5 && ((curPressed >> (lastPressed - 1)) & 0x1) == 0x0 && elapsed >= 100) {
+    lastPressed = 5;
+    pressTimer = millis();
+  // mark buttons as unpressed (release) and leave hold mode if no button is
+  // currently pressed and 100ms has passed since the last non-zero return
+  } else if (curPressed == 0x0 && lastPressed > 0 && elapsed >= 100) { // ALLOW RELEASE 100MS AFTER RETURN
     lastPressed = 0;
+    hold = false;
     pressTimer = millis();
   }
 
-  // only return >0 the first time button is pressed, otherwise always 0
   return 0;
+}
+
+void consumePress() {
+  /* consumePress - Function which absorbs all button presses until all buttons
+       are released. After calling this, subsequent calls to getPressed will
+       return 0 (not pressed) until all buttons are released and and a button
+       is pressed again. Useful when changing user interfaces so that any
+       button still held from the previous screen is ignored.
+       Parameters: N/A
+       Returns: N/A
+  */
+  lastPressed = 5;
 }
 
 bool updateBrightness() {

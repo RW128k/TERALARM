@@ -88,6 +88,7 @@ bool chTime(byte &setHrs, byte &setMins) {
         set = false;
         blinkText = false;
         prev = 0;
+        consumePress();
         break;
 
       // BUTTON 2: cancel and return discard signal
@@ -192,6 +193,7 @@ bool chDate(byte &setDay, byte &setMonth, short &setYear) {
         set++;
         blinkText = false;
         prev = 0;
+        consumePress();
         break;
 
       // BUTTON 2: cancel and return discard signal
@@ -421,6 +423,7 @@ void confirm() {
   digitalWrite(buzzer, HIGH); // off
   digitalWrite(blueLED, LOW);
   background(800);
+  consumePress();
   lcd.clear();
 }
 
@@ -446,5 +449,6 @@ void cancel() {
   digitalWrite(buzzer, HIGH); // off
   digitalWrite(redLED, LOW);
   background(1000);
+  consumePress();
   lcd.clear();
 }

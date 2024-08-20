@@ -31,6 +31,7 @@ extern byte brightness;
 byte brightCurve(short sensor);
 void background(unsigned short sleepDuration);
 byte getPressed();
+void consumePress();
 bool updateBrightness();
 
 #endif

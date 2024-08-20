@@ -217,6 +217,7 @@ void soundAlarm() {
         // disable buzzer
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
+        consumePress();
         lcd.clear();
         break;
       // if challenge is > 0 and answer is correct increment points and break
@@ -236,6 +237,7 @@ void soundAlarm() {
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
         digitalWrite(blueLED, LOW);
+        consumePress();
         lcd.clear();
         // break from loop shows next question or disables alarm
         break;
@@ -259,6 +261,7 @@ void soundAlarm() {
         noTone(buzzer);
         digitalWrite(buzzer, HIGH);
         digitalWrite(redLED, LOW);
+        consumePress();
         lcd.clear();
         // do not break, loop again for the same question but with less points
       }

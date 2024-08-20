@@ -156,7 +156,7 @@ void setup() {
   // absorb presses and enter secret timer function
   if (digitalRead(button1) == LOW && digitalRead(button2) == LOW && digitalRead(button3) == LOW && digitalRead(button4) == LOW) {
     if (brightness == 0) {brightness = 255;}
-    getPressed();
+    consumePress();
     lcd.clear();
     secretTimer();
     // revert automatic brightness: never reached but kept for portability
@@ -211,7 +211,7 @@ void setup() {
   analogWrite(lcdLED, brightness == 0 ? brightCurve(analogRead(ldr)) : brightness == 1 ? 0 : brightCurve(41.3 * (brightness - 2) + 110));
 
   // absorb button presses before entering main loop to force clockface
-  getPressed();
+  consumePress();
 }
 
 void loop() {
@@ -238,10 +238,12 @@ void loop() {
   // sound alarm if the current time equals the alarm time and it has not been
   // disabled already in the current minute
   if (timeObj.hour == alarmHrs && timeObj.min == alarmMins && !alarmDisabled && alarmState) {
+    consumePress();
     lcd.clear();
     soundAlarm();
     // mark alarm as disabled for current minute
     alarmDisabled = true;
+    consumePress();
     lcd.clear();
   }
 
@@ -259,6 +261,7 @@ void loop() {
       /* SET TIME */
 
       // set up UI background on LCD (clear and print title)
+      consumePress();
       lcd.clear();
       lcd.setCursor(5, 0);
       lcd.print(F("SET TIME:"));
@@ -352,6 +355,7 @@ void loop() {
       /* SET ALARM TIME */
 
       // set up UI background on LCD (clear and print title)
+      consumePress();
       lcd.clear();
       lcd.setCursor(5, 0);
       lcd.print(F("SET ALARM:"));
@@ -458,6 +462,7 @@ void loop() {
       // if UI function returns true, brightness changed further so call again
       lcd.clear();
       while (updateBrightness());
+      consumePress();
       lcd.clear();
       break;
 
@@ -468,6 +473,7 @@ void loop() {
       // if UI function returns true, brightness changed further so call again
       lcd.clear();
       while (updateBrightness());
+      consumePress();
       lcd.clear();
       break;
     }
