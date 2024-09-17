@@ -51,6 +51,8 @@ DS3231 rtc(SDA, SCL);
 byte alarmMins;
 byte alarmHrs;
 byte alarmChallenge;
+byte alarmSnoozeSecs;
+byte alarmSnoozeMins;
 bool alarmState;
 byte brightness;
 
@@ -108,8 +110,10 @@ void setup() {
   alarmHrs = EEPROM.read(0) >= 0 && EEPROM.read(0) <= 23 ? EEPROM.read(0) : 0;
   alarmMins = EEPROM.read(1) >= 0 && EEPROM.read(1) <= 59 ? EEPROM.read(1) : 0;
   alarmChallenge = EEPROM.read(2) >= 0 && EEPROM.read(2) <= 99 ? EEPROM.read(2) : 10;
-  alarmState = EEPROM.read(3) == 1;
-  brightness = EEPROM.read(4) >= 0 && EEPROM.read(4) <= 17 ? EEPROM.read(4) : 0;
+  alarmSnoozeMins = EEPROM.read(3) >= 0 && EEPROM.read(3) <= 59 ? EEPROM.read(3) : 0;
+  alarmSnoozeSecs = EEPROM.read(4) >= 0 && EEPROM.read(4) <= 59 ? EEPROM.read(4) : 0;
+  alarmState = EEPROM.read(5) == 1;
+  brightness = EEPROM.read(6) >= 0 && EEPROM.read(6) <= 17 ? EEPROM.read(6) : 0;
 
   // set the seed for generating random numbers based on RTC time
   randomSeed(rtc.getUnixTime(rtc.getTime()));
@@ -153,7 +157,7 @@ void setup() {
   delay(150);
   
   // if all buttons are held down at this point, halt automatic brightness,
-  // absorb presses and enter secret timer function
+  // absorb presses, clear LCD and enter secret timer function
   if (digitalRead(button1) == LOW && digitalRead(button2) == LOW && digitalRead(button3) == LOW && digitalRead(button4) == LOW) {
     if (brightness == 0) {brightness = 255;}
     consumePress();
@@ -198,7 +202,8 @@ void setup() {
   Serial.print(rtc.getDateStr(FORMAT_LONG, FORMAT_LITTLEENDIAN, '/'));
   Serial.println(F(".\n"));
     
-  // give the user time (2.5s) to read the static LCD then clear for drawing the clockface
+  // give the user time (2.5s) to read the static LCD then clear for drawing
+  // the clockface
   delay(2500);
   lcd.clear();
 
@@ -391,7 +396,7 @@ void loop() {
 
       /* SET CHALLENGE */
 
-      // set up UI background on LCD (clear and print title)
+      // print title on LCD
       lcd.setCursor(3, 0);
       lcd.print(F("SET CHALLENGE:"));
 
@@ -408,13 +413,54 @@ void loop() {
         lcd.clear();
         lcd.setCursor(1, 1);
         lcd.print(F("CHALLENGE SET TO:"));
-        lcd.setCursor(alarmChallenge == 0 ? 8 : 9, 2);
         // create buffer and format challenge into buffer then print to LCD
         char confStr[5];
-        if (setNum == 0) {
+        if (alarmChallenge == 0) {
+          lcd.setCursor(8, 2);
           strcpy_P(confStr, reinterpret_cast<const char *>(F("NONE")));
         } else {
+          lcd.setCursor(9, 2);
           sprintf(confStr, "%d", alarmChallenge);
+        }
+        lcd.print(confStr);
+        confirm();
+      } else {
+        // paint cancellation UI and play buzzer sound if cancelled
+        cancel();
+        // do not proceed with altering other settings, run main loop again
+        return;
+      }
+
+      /* SET SNOOZE */
+
+      // print title on LCD
+      lcd.setCursor(4, 0);
+      lcd.print(F("SET SNOOZE:"));
+
+      // copy current snooze minutes and seconds to new memory for manipulation
+      byte setSnoozeMins = alarmSnoozeMins;
+      byte setSnoozeSecs = alarmSnoozeSecs;
+
+      // create UI for altering above snooze value and run its loop
+      if (chMinsSecs(setSnoozeMins, setSnoozeSecs)) {
+        // update snooze period to altered value in RAM and EEPROM if confirmed
+        alarmSnoozeMins = setSnoozeMins;
+        alarmSnoozeSecs = setSnoozeSecs;
+        EEPROM.update(3, alarmSnoozeMins);
+        EEPROM.update(4, alarmSnoozeSecs);
+
+        // paint confirmation UI with new snooze period and play buzzer sound
+        lcd.clear();
+        lcd.setCursor(3, 1);
+        lcd.print(F("SNOOZE SET TO:"));
+        // create buffer and format snooze string into buffer then print to LCD
+        char confStr[7];
+        if (alarmSnoozeMins == 0 && alarmSnoozeSecs == 0) {
+          lcd.setCursor(8, 2);
+          strcpy_P(confStr, reinterpret_cast<const char *>(F("NONE")));
+        } else {
+          lcd.setCursor(7, 2);
+          sprintf(confStr, "%02dm%02ds", alarmSnoozeMins, alarmSnoozeSecs);
         }
         lcd.print(confStr);
         confirm();
@@ -427,7 +473,7 @@ void loop() {
 
       /* SET STATE */
 
-      // set up UI background on LCD (clear and print title)
+      // print title on LCD
       lcd.setCursor(5, 0);
       lcd.print(F("SET STATE:"));
 
@@ -438,7 +484,7 @@ void loop() {
       if (chArray(stateStrs, 2, setState)) {
         // update state to altered value in RAM and EEPROM if confirmed
         alarmState = setState == 2; // integer to boolean (RAM)
-        EEPROM.update(3, alarmState ? 1 : 0); // boolean to integer (EEPROM)
+        EEPROM.update(5, alarmState ? 1 : 0); // boolean to integer (EEPROM)
 
         // paint confirmation UI with new state and play buzzer sound
         lcd.clear();

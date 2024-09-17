@@ -27,6 +27,7 @@
 extern BufferedLCD lcd;
 
 bool chTime(byte &setHrs, byte &setMins);
+bool chMinsSecs(byte &setMins, byte &setSecs);
 bool chDate(byte &setDay, byte &setMonth, short &setYear);
 bool chArray(const char *iter[], byte bound, byte &setIndex);
 bool chChallenge(byte &setNum);

@@ -12,6 +12,10 @@
          (synchronised with EEPROM).
        alarmChallenge - The challenge value of the alarm (synchronised with
          EEPROM).
+       alarmSnoozeSecs - The seconds value of the time period to snooze for
+         (synchronised with EEPROM).
+       alarmSnoozeMins - The minutes value of the time period to snooze for
+         (synchronised with EEPROM).
        alarmState - Boolean state value determining whether the alarm is
          enabled or disabled (synchronised with EEPROM).
        brightness - Brightness setting value (synchronised with EEPROM).
@@ -44,6 +48,8 @@ extern DS3231 rtc;
 extern byte alarmMins;
 extern byte alarmHrs;
 extern byte alarmChallenge;
+extern byte alarmSnoozeSecs;
+extern byte alarmSnoozeMins;
 extern bool alarmState;
 extern byte brightness;
 

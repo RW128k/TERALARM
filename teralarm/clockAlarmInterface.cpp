@@ -12,6 +12,10 @@
          (synchronised with EEPROM).
        alarmChallenge - The challenge value of the alarm (synchronised with
          EEPROM).
+       alarmSnoozeSecs - The seconds value of the time period to snooze for
+         (synchronised with EEPROM).
+       alarmSnoozeMins - The minutes value of the time period to snooze for
+         (synchronised with EEPROM).
        alarmState - Boolean state value determining whether the alarm is
          enabled or disabled (synchronised with EEPROM).
        brightness - Brightness setting value (synchronised with EEPROM).
@@ -36,6 +40,10 @@
 #include "backgroundTasks.h"
 #include "clockAlarmInterface.h"
 
+#define button1 2
+#define button2 3
+#define button3 4
+#define button4 5
 #define buzzer 8
 #define lcdLED 10
 #define redLED 11
@@ -179,8 +187,8 @@ void soundAlarm() {
           lcd.print(pointsStr);
         } else {
           // print NO CHALLENGE INSTRUCTION at bottom
-          lcd.setCursor(3, 3);
-          lcd.print(F("PRESS ANY KEY"));
+          lcd.setCursor(2, 3);
+          lcd.print(F("PRESS ANY BUTTON"));
         }
         
         prev1 = millis();
@@ -290,5 +298,164 @@ void soundAlarm() {
   // if brightness was manually selected, revert to value before override
   } else {
     analogWrite(lcdLED, brightness == 1 ? 0 : brightCurve(41.3 * (brightness - 2) + 110));
-  }  
+  }
+
+  // return and do not snooze if snooze is set to NONE (00:00)
+  if (alarmSnoozeMins == 0 && alarmSnoozeSecs == 0) {return;}
+
+  // draw static parts of snooze countdown UI (title and progres bar bounds)
+  lcd.clear();
+  lcd.setCursor(6, 0);
+  lcd.print(F("SNOOZING"));
+  lcd.setCursor(0, 3);
+  lcd.print(F("\2"));
+  lcd.setCursor(19, 3);
+  lcd.print(F("\4"));
+
+  // initialise timing variables for snooze and flags for flashing the LED
+  unsigned long snoozeTimer = millis();
+  unsigned long snoozeMillis = ((alarmSnoozeMins * 60) + alarmSnoozeSecs) * 1000UL;
+  bool flash = true;
+
+  // loop until snooze period has elapsed, tracking elapsed time each iteration
+  for (unsigned long elapsed; (elapsed = millis() - snoozeTimer) < snoozeMillis;) {
+    // calculate remaining snooze time in minutes and seconds and progress
+    // scaled to 0 -> 18 (number of units on progress bar)
+    byte remainingMins = (snoozeMillis - elapsed) / 60000;
+    byte remainingSecs = ((snoozeMillis - elapsed) % 60000) / 1000;
+    byte progress = ((float) elapsed / snoozeMillis) * 18;
+
+    // run background tasks
+    getPressed();
+
+    // print REMAINING TIME at lower center
+    char remainingStr[6];
+    sprintf(remainingStr, "%02d:%02d", remainingMins, remainingSecs);
+    lcd.setCursor(7, 2);
+    lcd.print(remainingStr);
+
+    // character string for progrss bar
+    char bar[19];
+    bar[18] = 0;
+
+    // populate the progress bar with calculated number of block characters and
+    // remaining whitespace
+    if ((elapsed - ((progress * snoozeMillis) / 18)) % 1000 >= 500) {
+      // show additional block for 500ms every 1000ms after last block added
+      memset(bar, 3, progress + 1);
+      memset(bar + progress + 1, ' ', 17 - progress);
+    } else {
+      // otherwise show only correct number of blocks in progress bar
+      memset(bar, 3, progress);
+      memset(bar + progress, ' ', 18 - progress);
+    }
+
+    // print PROGRESS BAR at bottom
+    lcd.setCursor(1, 3);
+    lcd.print(bar);
+
+    // flash the blue LED for 200ms every 5000ms, tracking state with flag
+    if (elapsed % 5000 >= 4800 && flash) {
+      digitalWrite(blueLED, HIGH);
+      flash = false;
+    } else if (elapsed % 5000 < 4800 && !flash) {
+      digitalWrite(blueLED, LOW);
+      flash = true;
+    }
+
+    // skip snooze if all buttons are held during countdown
+    if (digitalRead(button1) == LOW && digitalRead(button2) == LOW && digitalRead(button3) == LOW && digitalRead(button4) == LOW) {
+      // absorb button presses and clear LCD from countdown
+      consumePress();
+      lcd.clear();
+
+      // print SKIPPED MESSAGE at upper centre
+      lcd.setCursor(2, 1);
+      lcd.print(F("SNOOZE SKIPPED!"));
+
+      // sound buzzer 3 times (200ms off, 200ms on) to signify snooze skipped
+      for (byte i = 0; i < 6; i++) {
+        background(200);
+        digitalWrite(buzzer, i % 2 == 0 ? LOW : HIGH);
+        digitalWrite(blueLED, i % 2 == 0 ? HIGH : LOW);
+      }
+
+      // show message for additional 800ms after last buzzer before returning
+      background(800);
+
+      return;
+    }
+  }
+
+  // set brightness to maximum during snooze alert
+  analogWrite(lcdLED, 255);
+  // halt automatic brightness if enabled, reverts when alert dismissed
+  if (brightness == 0) {brightness = 255;}
+
+  // absorb button presses, turn off blue LED and clear LCD from countdown
+  consumePress();
+  digitalWrite(blueLED, LOW);
+  lcd.clear();
+
+  // print SNOOZE ALERT TITLE at top
+  lcd.setCursor(3, 0);
+  lcd.print(F("SNOOZE ELAPSED"));
+
+  // reset timing variable and LED flash flag for use in alert loop
+  snoozeTimer = millis();
+  flash = true;
+
+  // loop until any button is pressed, tracking elapsed time and running
+  // background tasks each iteration
+  for (unsigned long elapsed = millis(); getPressed() == 0; elapsed = millis() - snoozeTimer) {
+    // blink DISMISS INSTRUCTION on / off at lower center / bottom every 750ms
+    if (elapsed % 1500 >= 750) {
+        lcd.setCursor(2, 2);
+        lcd.print(F("                "));
+        lcd.setCursor(5, 3);
+        lcd.print(F("          "));
+    } else {
+        lcd.setCursor(2, 2);
+        lcd.print(F("PRESS ANY BUTTON"));
+        lcd.setCursor(5, 3);
+        lcd.print(F("TO DISMISS"));
+    }
+
+    // flash the red LED and sound buzzer for 200ms every 5000ms, tracking
+    // state with flag
+    if (elapsed % 5000 < 200 && flash) {
+      digitalWrite(buzzer, LOW);
+      digitalWrite(redLED, HIGH);
+      flash = false;
+    } else if (elapsed % 5000 >= 200 && !flash) {
+      digitalWrite(buzzer, HIGH);
+      digitalWrite(redLED, LOW);
+      flash = true;
+    }
+  }
+
+  // absorb button presses, turn off red LED and clear LCD from alert
+  consumePress();
+  digitalWrite(redLED, LOW);
+  lcd.clear();
+
+  // print ALERT DISMISSED MESSAGE at upper centre
+  lcd.setCursor(5, 1);
+  lcd.print(F("DISMISSED!"));
+
+  // sound buzzer 3 times (400ms off, 400ms on) to signify alert dismissed
+  for (byte i = 0; i < 6; i++) {
+    delay(400);
+    digitalWrite(buzzer, i % 2 == 0 ? LOW : HIGH);
+    digitalWrite(blueLED, i % 2 == 0 ? HIGH : LOW);
+  }
+
+  // resume automatic brightness if enabled and previously halted
+  if (brightness == 255) {
+    brightness = 0;
+    analogWrite(lcdLED, brightCurve(analogRead(ldr)));
+  // if brightness was manually selected, revert to value before override
+  } else {
+    analogWrite(lcdLED, brightness == 1 ? 0 : brightCurve(41.3 * (brightness - 2) + 110));
+  }
 }

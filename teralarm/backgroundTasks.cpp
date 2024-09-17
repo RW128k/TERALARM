@@ -175,7 +175,7 @@ bool updateBrightness() {
   */
 
   // store current brightness value in EEPROM
-  EEPROM.update(4, brightness);  
+  EEPROM.update(6, brightness);
 
   // set up LCD with UI title
   lcd.setCursor(5, 0);

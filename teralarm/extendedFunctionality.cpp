@@ -12,6 +12,10 @@
          (synchronised with EEPROM).
        alarmChallenge - The challenge value of the alarm (synchronised with
          EEPROM).
+       alarmSnoozeSecs - The seconds value of the time period to snooze for
+         (synchronised with EEPROM).
+       alarmSnoozeMins - The minutes value of the time period to snooze for
+         (synchronised with EEPROM).
        alarmState - Boolean state value determining whether the alarm is
          enabled or disabled (synchronised with EEPROM).
        brightness - Brightness setting value (synchronised with EEPROM).
@@ -225,6 +229,10 @@ void debug() {
         length = sprintf(lineBuff, "ALARM CHALLENGE: %d", alarmChallenge);
         break;
       } case 5: {
+        // alarm snooze from RAM (synced with EEPROM)
+        length = sprintf(lineBuff, "ALARM SNOOZE: %02dm%02ds", alarmSnoozeMins, alarmSnoozeSecs);
+        break;
+      } case 6: {
         // alarm state from RAM (synced with EEPROM) numerical and textual form
         if (alarmState) {
           strcpy_P(lineBuff, reinterpret_cast<const char *>(F("ALARM STATE: 1 (ON)")));
@@ -234,7 +242,7 @@ void debug() {
           length = 20;
         }
         break;
-      } case 6: {
+      } case 7: {
         // internal numerical brightness from RAM (synced with EEPROM)
         length = sprintf(lineBuff, "BRIGHTNESS: %d", brightness);
         if (brightness == 0) {
@@ -302,6 +310,6 @@ void debug() {
 
     // increment carousel and reset timer
     prev = millis();
-    carousel = (carousel+1) % 70;
+    carousel = (carousel + 1) % 80;
   }
 }
