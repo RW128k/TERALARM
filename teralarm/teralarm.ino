@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    teralarm.ino - The main Arduino source file containing the setup and loop
      functions which run the startup procedure and clockface backend
@@ -63,7 +63,7 @@ Time timeObj;
 const char *dows[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 const char *months[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 const char *stateStrs[2] = {"OFF", "ON"};
-const char titleStr[13] = "PROTOTYPE 02";
+const char titleStr[13] = "FIRMWARE 3.0";
 
 void setup() {
   /* setup - Standard Arduino setup function. Called once on microcontroller
@@ -124,10 +124,10 @@ void setup() {
   
   // populate the array with coordinates in order left to right, top to bottom
   for (byte i=0; i<20; i++) {
-     for (byte j=0; j<4; j++) {
+    for (byte j=0; j<4; j++) {
       coords[i*4 + j][0] = j; // y coordinate
       coords[i*4 + j][1] = i; // x coordinate
-     }
+    }
   } 
 
   // loop over set of 80 unfilled coordinates, reducing set size each iteration
@@ -148,7 +148,7 @@ void setup() {
     char titleChar[2] = {titleStr[i], 0}; // convert single character to null terminated string
     lcd.setCursor(4 + i, 1);
     lcd.print(titleChar);
-    delay(100);
+    delay(i < 11 ? 100 : 200); // pause for 200ms after last character printed
   }
 
   // fill in previously printed title to make completely filled screen
@@ -195,7 +195,7 @@ void setup() {
   Serial.println(F("|____| |    | |  __  |    | | \\  | | \\  |"));
   Serial.println(F("|  \\   | /\\ | |    | |    | |  \\ | |  \\ |"));
   Serial.println(F("|   \\  |/  \\| |____| |____| |   \\| |   \\| (C) RWGUNN 2022\n"));
-  Serial.println(F("WELCOME TO PROTOTYPE 02."));
+  Serial.println(F("WELCOME TO FIRMWARE 3.0."));
   Serial.print(F("THE CURRENT TIME IS "));
   Serial.print(rtc.getTimeStr(FORMAT_SHORT));
   Serial.print(F(" ON "));

@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    setInterface.cpp - The header file containing the functions which draw the
      User Interfaces for altering various settings and handle their frontend

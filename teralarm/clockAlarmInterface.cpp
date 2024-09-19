@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    clockAlarmInterface.cpp - The source file containing the functions which
      draw the clockface and run both front and backend logic for sounding the
@@ -410,15 +410,15 @@ void soundAlarm() {
   for (unsigned long elapsed = millis(); getPressed() == 0; elapsed = millis() - snoozeTimer) {
     // blink DISMISS INSTRUCTION on / off at lower center / bottom every 750ms
     if (elapsed % 1500 >= 750) {
-        lcd.setCursor(2, 2);
-        lcd.print(F("                "));
-        lcd.setCursor(5, 3);
-        lcd.print(F("          "));
+      lcd.setCursor(2, 2);
+      lcd.print(F("                "));
+      lcd.setCursor(5, 3);
+      lcd.print(F("          "));
     } else {
-        lcd.setCursor(2, 2);
-        lcd.print(F("PRESS ANY BUTTON"));
-        lcd.setCursor(5, 3);
-        lcd.print(F("TO DISMISS"));
+      lcd.setCursor(2, 2);
+      lcd.print(F("PRESS ANY BUTTON"));
+      lcd.setCursor(5, 3);
+      lcd.print(F("TO DISMISS"));
     }
 
     // flash the red LED and sound buzzer for 200ms every 5000ms, tracking

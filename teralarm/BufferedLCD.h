@@ -1,3 +1,21 @@
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
+
+   BufferedLCD.h - The header file containing overrides for LCD class methods
+     which buffer the on-screen contents before sending to the hardware. Print
+     calls containing identical data to that in the buffer will not be resent
+     to the hardware, saving on overhead and reducing LCD flickers.
+     External Variables / Constants: N/A
+     Third Party Includes:
+       Arduino.h - The main Arduino library containing all platform specific
+         functions and constants.
+       LiquidCrystal_I2C.h - Library used to interface with the LCD over the
+         I2C bus.
+     Local Includes:
+       BufferedLCD.h - Own header file.
+
+   (C) RW128k 2024
+*/
+
 #ifndef BUFFEREDLCD_H
 #define BUFFEREDLCD_H
 

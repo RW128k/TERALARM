@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    backgroundTasks.h - The header file containing functions which handle and
      manipulate manual / automatic brightness as well as capturing user input

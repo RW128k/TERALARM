@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    clockAlarmInterface.cpp - The header file containing the functions which
      draw the clockface and run both front and backend logic for sounding the

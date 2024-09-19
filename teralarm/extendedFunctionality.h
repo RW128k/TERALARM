@@ -1,4 +1,4 @@
-/* TERALARM (PROTOTYPE 2) - The effective alarm clock
+/* TERALARM (FIRMWARE 3) - The effective alarm clock
 
    extendedFunctionality.cpp - The header file containing functions which
      provide features that are hidden / not included in the standard UI, namely
